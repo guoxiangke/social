@@ -1,0 +1,5 @@
+name = camplus_social
+description = camplus_social
+core = 7.x
+package = DEV
+;files[] = includes/context.inc

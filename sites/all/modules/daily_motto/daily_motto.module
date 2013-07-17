@@ -1,0 +1,54 @@
+<?php
+/**
+ * Implements hook_block_info().
+ *
+ * This hook declares what blocks are provided by the module.
+ */
+function daily_motto_block_info() {
+  $blocks['daily_motto'] = array(
+    'info' => t('Daily Motto'),
+  );
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ *
+ * This hook generates the contents of the blocks themselves.
+ */
+function daily_motto_block_view($delta = '') {
+  //The $delta parameter tells us which block is being requested.
+  switch ($delta) {
+    case 'daily_motto':
+      $block['subject'] = t('Daily Motto');
+      $block['content'] = daily_motto_content();
+      break;
+  }
+  return $block;
+}
+function daily_motto_content(){
+	if(isset($_COOKIE['daily_motto'])&&!empty($_COOKIE['daily_motto'])){
+		return $_COOKIE['daily_motto'];
+	}
+	else{
+		$file = drupal_get_path('module', 'daily_motto').'/db/daily_motto.txt';
+		if(file_exists($file)){ 
+			$data = file($file); //将文件存放在一个数组中; 
+			$num = count($data); //条数; 
+			$id = mt_rand(0,$num-1); //随机数字; 
+			$str = chop($data[$id]); //显示第几行数据,并去除空格; 
+			$str = '<div id="daily-motto-content">'.str_replace("|", "</div><div id='daily-motto-source'>--", $str).'</div>';
+			$expire_time = configure_expire_time();
+			setcookie("daily_motto", $str, $expire_time);
+			drupal_add_css(drupal_get_path('module', 'daily_motto').'/css/daily_motto.css');
+			return $str;
+		}
+		else{
+			return 'there is no daily motto!';
+		}
+	}
+}
+function configure_expire_time($hours=0){ //Change the $hours=0 to change the update time, 0-24;
+	$time = strtotime(date("Y-m-d",strtotime("+1 day")));
+	return $time+$hours*3600;
+}

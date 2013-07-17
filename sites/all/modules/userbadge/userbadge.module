@@ -1,0 +1,290 @@
+<?php
+require_once drupal_get_path('module','userbadge').'/inc/db.inc';
+require_once drupal_get_path('module','userbadge').'/userbadge.config';
+require_once drupal_get_path('module','userbadge').'/inc/handler.inc';
+/**
+ * Implements hook_menu().
+ */
+function debug_userbadge(){
+    echo get_knowledge_terms_best_num(1,1);
+    exit;
+}
+function userbadge_menu(){
+  $items['user/%/userbadge'] = array(
+    'page callback' => 'userbadge_lists',
+	'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'title' => t('Badges'), //menu title
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+  );
+  $items['user/debug'] = array(
+    'page callback' => 'debug_userbadge',
+    'access arguments' => array('access content'),
+    'title' => 'userbadge debug',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+  );
+  return $items;
+}
+function userbadge_lists($uid=-1,$mode='full'){
+    $uid = (int)$uid;
+    if($uid == -1){
+            global $user;
+            $uid = $user->uid;
+    }
+    $user_badges = get_user_badge($uid);
+    $userbadge_conf = userbadge_conf('all');
+    $badges = '';
+    foreach ($user_badges as $each) {
+        if(isset($userbadge_conf[$each])){
+            switch($mode){
+                case 'full':
+                    $badges .= "
+                    <div class='each-badge'>
+                        <div class='badge-name'>".$userbadge_conf[$each]['huamn_name']."</div>
+                        <div class='badge-small-img'><img src='".url($userbadge_conf[$each]['small_image'])."'/></div>
+                        <div class='badge-large-img'><img src='".url($userbadge_conf[$each]['large_image'])."'/></div>
+                        <div class='badge-desc'>".$userbadge_conf[$each]['desc']."</div>
+                    </div>
+                    ";
+                    break;
+                case 'small':
+                    $badges .= '<li><img title="'.$userbadge_conf[$each]['huamn_name'].'" src="'.url($userbadge_conf[$each]['small_image']).'" alt="'.$userbadge_conf[$each]['huamn_name'].'"></li>';
+                    break;
+            }
+
+        }
+    }
+    switch ($mode) {
+        case 'full':
+            $output = "<div class='user-all-badge'>".$badges."</div>";
+            break;
+        case 'small':
+            $output = '<div class="profile-badge">
+                    <h2 class="profile-badge_title">徽章：</h2>
+                    <ul class="clearfix profile-badge_item">'.$badges.'</ul></div>';
+            break;
+        default:
+            break;
+    }
+    
+    return $output;
+}
+/**
+ * Implements hook_theme().
+ */
+function userbadge_theme(){
+    return array(
+        'userbadge' => array(
+          'variables' => array(
+              'img'=>'',
+              'name'=>'',
+          ),
+        ),
+        );
+}
+/**
+ * Implements hook_node_insert().
+ */
+function userbadge_node_insert($node){
+    if(isset($node->type)&&$node->type == 'blog'){
+        //add badge
+        $badges = array('yimingjingren','xiaoyoumingqi','zhimingzuojia');
+        global $user;
+        $uid = $user->uid;
+        badge_handler($uid,$badges);
+    }
+    else if(isset($node->type)&&$node->type == 'question'){
+        //add badge
+        if(isset($node->field_subject)){
+            $field_subject = $node->field_subject;
+            switch ($field_subject['und'][0]['tid']) {
+                case '':
+
+
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+}
+/**
+ * Implements hook_comment_insert().
+ */
+function userbadge_comment_insert($comment) {
+    if(isset($comment->node_type)&&$comment->node_type == 'comment_node_blog'){
+        //add badge
+        $badges = array('tanxiaohongru');
+        $uid = $comment->uid;
+        badge_handler($uid,$badges);
+
+        $badges = array('yiyanjiuding','qibuchengshi');
+        $node = node_load($comment->nid);
+        $uid = $node->uid;
+        badge_handler($uid,$badges);
+    }
+    else if(isset($comment->node_type)&&$comment->node_type == 'comment_node_question'){
+        $badges = array('shuxuezhuancai');
+        $uid = $comment->uid;
+        badge_handler($uid,$badges);
+    }
+}
+/**
+ * React to a comment being saved.
+ *
+ * @param $comment
+ *   The newly saved comment object.
+ * @param $edit
+ *   TRUE if the comment was just edited; FALSE if it was just created.
+ * @see fbss_comments_save_comment()
+ * @see fbss_comments_edit_submit()
+ */
+function userbadge_fbss_comments_after_save($comment, $edit) {
+  if (!$edit) {
+      //add badge
+        $badges = array('tanxiaofengsheng');
+        global $user;
+        $uid = $user->uid;
+        badge_handler($uid,$badges);
+        
+        $badges = array('yihubaiying');
+        $statuses = statuses_load($comment->sid);
+        $uid = $statuses->sender;
+        badge_handler($uid,$badges);
+  }
+}
+/**
+ * Act on a flagging.
+ *
+ * @param $op
+ *  The operation being performed: one of 'flag' or 'unflag'.
+ * @param $flag
+ *  The flag object.
+ * @param $content_id
+ *  The id of the content (aka entity) the flag is on.
+ * @param $account
+ *  The user account performing the action.
+ * @param $fcid
+ *  The id of the flagging in the {flag_content} table.
+ */
+function userbadge_flag($op, $flag, $content_id, $account, $fcid) {
+    if($op == 'flag'){
+        switch ($flag->fid) {
+            case 9:
+                $uid = $account->uid;
+                $badges = array('zantanbuyi');
+                badge_handler($uid,$badges);
+                
+                $statuses = statuses_load($content_id);
+                $uid = $statuses->uid;
+                $badges = array('paianjiaojue');
+                badge_handler($uid,$badges);
+                
+                $comment = comment_load($content_id);
+                $uid = $comment->uid;
+                $badges = array('rumusanfen');
+                badge_handler($uid,$badges);
+                break;
+            case 3:
+                $uid = $account->uid;
+                $badges = array('wuweibuzhi');
+                badge_handler($uid,$badges);
+                
+                $uid = $account->uid;
+                $badges = array('mingrizhixing','houqizhixiu','yidaizongshi');
+                badge_handler($uid,$badges);
+                break;
+            default:
+                break;
+        }
+    }
+}
+/**
+ * Implements hook_votingapi_insert
+ * Array
+(
+    [0] => Array
+        (
+            [entity_type] => comment
+            [entity_id] => 986
+            [value_type] => points
+            [value] => 1
+            [tag] => blog
+            [uid] => 1
+            [timestamp] => 1365140591
+            [vote_source] => 127.0.0.1
+            [prepped] => 1
+            [vote_id] => 7
+        )
+
+)
+ */
+function userbadge_votingapi_insert($votes) {
+    foreach($votes as $vote){
+        if($vote['value']>0 && $vote['entity_type'] == 'comment'){
+            $badges = array('shezhanqunru');
+            $comment = comment_load($vote['entity_id']);
+            $uid = $comment->uid;
+            badge_handler($uid,$badges);
+        }
+    }
+ //   print_r($votes);
+ //   exit;
+}
+/**
+ * Implements hook_statuses_save().
+ */
+function userbadge_statuses_save($status, $context, $edit, $options) {
+  if (!$edit) {
+        $badges = array('yijuchengming','yijianzhongqing','hufenghuanyu');
+        global $user;
+        $uid = $user->uid;
+        badge_handler($uid,$badges);
+  }
+}
+
+function userbadge_node_update($node){
+    if($node->type == 'question' && isset($node->field_best_answer) && isset($node->field_best_answer['und'][0]) && $node->field_best_answer['und'][0]['value']>0){
+        $comment = comment_load($node->field_best_answer['und'][0]['value']);
+        $uid = $comment->uid;
+        $badges = array('xuefuwuche','yujingsizuo');
+        badge_handler($uid,$badges);
+    }
+}
+
+function badge_handler($uid,$badges){
+    //add badge
+      $badge_attach = array();
+      foreach($badges as $each){
+          $badge_conf = userbadge_conf($each);
+          $badge = get_user_badge($uid);
+          if(in_array($each, $badge)){
+              continue;
+          }
+          else{
+              if(isset($badge_conf['handler'])){
+                $handler = $badge_conf['handler'];
+                if(function_exists($handler)){
+                    if($handler($uid,$badge_conf)){
+                        $badge_attach[] = $each;
+                    }
+                }
+              }
+
+          }
+      }
+      $badge_new = array_merge($badge,$badge_attach);
+      set_user_badge($uid,$badge_new);
+      global $user;
+      if($uid == $user->uid){
+          $badge_all = userbadge_conf('all');
+          foreach($badge_attach as $each){
+              if(isset($badge_all[$each]['msg'])){
+                  drupal_set_message($badge_all[$each]['msg']);
+              }
+          }
+      }
+}

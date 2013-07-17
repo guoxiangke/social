@@ -1,0 +1,82 @@
+<?php
+require_once drupal_get_path('module','terms_nodes').'/config.php';
+require_once drupal_get_path('module','terms_nodes').'/db.inc';
+
+/**
+ * Implements hook_theme().
+ */
+function terms_nodes_theme(){
+    return array(
+            'terms_nodes' => array(
+              'variables' => array(
+              ),
+            ),
+        );
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function terms_nodes_block_info(){
+  $vocabulary = array_keys(get_vocabulary());
+  $blocks = array();
+  foreach($vocabulary as $each){
+	  $blocks[$each.'_nodes'] = array(
+		'info' => t($each.' nodes'),
+	  );
+  }
+  return $blocks;
+}
+/**
+ * Implements hook_block_view().
+ */
+function terms_nodes_block_view($delta = '') {
+	$vocabulary = array_keys(get_vocabulary());
+	foreach($vocabulary as $each){
+		switch($delta){
+			case $each.'_nodes':
+				$block['subject'] = t('Knowledge');
+				$block['content'] = terms_nodes_block($delta);
+				break;
+		}
+	}
+    return $block;
+}
+
+function terms_nodes_block($vocabulary){
+	$vocabulary = substr($vocabulary, 0, strlen($vocabulary)-strlen('_nodes'));
+	$voc = taxonomy_vocabulary_machine_name_load($vocabulary);
+	$vid = $voc->vid;
+	$conf = get_vocabulary($voc->machine_name);
+	$field = 'field_data_'.$conf['field'];
+	$field_tid = $conf['field'].'_tid';
+	$sql = "
+			SELECT COUNT(n.nid) AS num,ttd.name AS name,ttd.tid AS tid
+			FROM {taxonomy_term_data} AS ttd 
+			left JOIN {".$field."} AS field ON ttd.tid = field.$field_tid
+			left JOIN {node} AS n ON field.entity_id = n.nid
+			WHERE ttd.vid = $vid
+			GROUP BY ttd.tid
+			";
+	$query = db_query($sql);
+	$result = $query->fetchAll();
+	foreach($result as &$each){
+		$path = taxonomy_term_uri($each);
+		$each->url = url($path['path']);
+	}
+	return theme('terms_nodes',$result);
+}
+
+function theme_terms_nodes($variables){
+	$output = '';
+	foreach($variables as $each){
+		$name = $each->name;
+		$url = $each->url;
+		$num = ($each->num > 0) ? $each->num : '';
+		$output .= "<div><div class='term-name'><a href='".$url."'>".$name."</a></div><div class='term-node-num'>".$num."</div></div>";
+	}
+	return "<div class='block-terms-nodes-num'>".$output."</div>";
+}
+
+
+

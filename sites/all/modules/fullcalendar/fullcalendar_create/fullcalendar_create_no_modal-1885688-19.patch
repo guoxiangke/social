@@ -1,0 +1,206 @@
+diff --git a/fullcalendar_create.module b/fullcalendar_create.module
+index 19263c2..9631715 100644
+--- a/fullcalendar_create.module
++++ b/fullcalendar_create.module
+@@ -75,18 +75,22 @@ function fullcalendar_create_module_implements_alter(&$implementations, $hook) {
+  * Populates the date fields. FullCalendar passes dates as ISO8601 in UTC.
+  */
+ function fullcalendar_create_date_combo_process_alter(&$element, &$form_state, $context) {
++  if (empty($form_state['fullcalendar_create_date_field']) && !empty($_GET['fullcalendar_create_date_field'])) {
++    $form_state['fullcalendar_create_date_field'][$_GET['fullcalendar_create_date_field']] = $_GET['fullcalendar_create_date_field'];
++  }
++
+   if (empty($form_state['fullcalendar_create_date_field']) || !in_array($element['#field_name'], $form_state['fullcalendar_create_date_field'])) {
+     return;
+   }
+ 
+   // Check for an end date first.
+-  if (isset($_POST['fullcalendar_create_end_date'])) {
+-    $end_date = new DateObject(check_plain($_POST['fullcalendar_create_end_date']), 'UTC');
++  if (isset($_POST['fullcalendar_create_end_date']) || isset($_GET['fullcalendar_create_end_date'])) {
++    $end_date = isset($_POST['fullcalendar_create_end_date']) ? new DateObject(check_plain($_POST['fullcalendar_create_end_date']), 'UTC') : new DateObject(check_plain($_GET['fullcalendar_create_end_date']));
+     $end_date = $end_date->format(DATE_FORMAT_DATETIME);
+   }
+   // Check for a start date.
+-  if (isset($_POST['fullcalendar_create_start_date'])) {
+-    $start_date = new DateObject(check_plain($_POST['fullcalendar_create_start_date']), 'UTC');
++  if (isset($_POST['fullcalendar_create_start_date']) || isset($_GET['fullcalendar_create_start_date']) ) {
++    $start_date = isset($_POST['fullcalendar_create_start_date']) ? new DateObject(check_plain($_POST['fullcalendar_create_start_date']), 'UTC') : new DateObject(check_plain($_GET['fullcalendar_create_start_date']), 'UTC');;
+     $start_date = $start_date->format(DATE_FORMAT_DATETIME);
+     // If there was no end date, use the start date.
+     if (!isset($end_date)) {
+diff --git a/includes/fullcalendar_create.fullcalendar.inc b/includes/fullcalendar_create.fullcalendar.inc
+index f2d093c..0c333a6 100644
+--- a/includes/fullcalendar_create.fullcalendar.inc
++++ b/includes/fullcalendar_create.fullcalendar.inc
+@@ -31,6 +31,9 @@ function fullcalendar_create_fullcalendar_options_definition() {
+       'default' => FALSE,
+       'bool' => TRUE,
+     ),
++    'method' => array(
++      'default' => 'modal',
++    ),
+     'node_type' => array('default' => ''),
+     'date_field' => array('default' => array()),
+     'days' => array(
+@@ -71,6 +74,19 @@ function fullcalendar_create_fullcalendar_options_form(&$form, &$form_state, &$v
+     'edit-style-options-fullcalendar-create-click' => array(1),
+     'edit-style-options-fullcalendar-create-select' => array(1),
+   );
++  $form['fullcalendar_create']['method'] = array(
++    '#type' => 'select',
++    '#title' => t('Select prefered method of new node creation'),
++    '#multiple' => FALSE,
++    '#options' => array(
++      'modal' => 'Modal',
++      'overlay' => 'Overlay',
++      'newwindow' => 'New window',
++      'link' => 'Link',
++    ),
++    '#default_value' => $view->options['fullcalendar_create']['method'],
++    '#dependency' => $dependency,
++  );
+   $form['fullcalendar_create']['node_type'] = array(
+     '#type' => 'select',
+     '#title' => t('Select the node type to prepopulate'),
+@@ -107,7 +123,7 @@ function fullcalendar_create_fullcalendar_options_process(&$variables, &$setting
+   if ((empty($settings['fullcalendar_create']['click']) && empty($settings['fullcalendar_create']['select'])) || !node_access('create', $settings['fullcalendar_create']['node_type'])) {
+     unset($settings['fullcalendar_create']);
+   }
+-  else {
++  elseif ($settings['fullcalendar_create']['method'] == 'modal') {
+     ctools_include('modal');
+     ctools_modal_add_js();
+   }
+diff --git a/js/fullcalendar_create.fullcalendar.js b/js/fullcalendar_create.fullcalendar.js
+index 13d4715..2330e42 100644
+--- a/js/fullcalendar_create.fullcalendar.js
++++ b/js/fullcalendar_create.fullcalendar.js
+@@ -7,10 +7,13 @@ Drupal.fullcalendar.plugins.fullcalendar_create = {
+     }
+     settings = settings.fullcalendar_create;
+ 
+-    Drupal.ajax.prototype.commands.fullcalendar_create_reload = function (ajax, data, status) {
+-      location.reload();
++    if (Drupal.ajax !== undefined) {
++      Drupal.ajax.prototype.commands.fullcalendar_create_reload = function (ajax, data, status) {
++        location.reload();
++      };
+     };
+ 
++    var submit;
+     var options = {};
+     if (settings.select) {
+       options.selectable = true;
+@@ -18,20 +21,21 @@ Drupal.fullcalendar.plugins.fullcalendar_create = {
+         if (settings.days && !settings.days[$.fullCalendar.formatDate(startDate, 'dddd')]) {
+           return;
+         }
+-
+-        var ajax = new Drupal.ajax('main', fullcalendar.$calendar[0], {
+-          event: 'fullcalendar_create_add_select',
+-          url: '/fullcalendar_create/ajax/add/' + settings.node_type,
+-          submit: {
+-            fullcalendar_create_start_date: $.fullCalendar.formatDate(startDate, 'u'),
+-            fullcalendar_create_end_date: $.fullCalendar.formatDate(endDate, 'u'),
+-            fullcalendar_create_date_field: settings.date_field
++        submit = {
++          fullcalendar_create_start_date: $.fullCalendar.formatDate(startDate, 'u'),
++          fullcalendar_create_end_date: $.fullCalendar.formatDate(endDate, 'u'),
++          fullcalendar_create_date_field: settings.date_field
++        };
++        for (extra in Drupal.settings) {
++          if (extra.match(/^fullcalendar_create_/g) != null) {
++            for (arg in Drupal.settings[extra]) {
++              submit[arg] = Drupal.settings[extra][arg];
++            }
+           }
+-        });
+-        $(ajax.element)
+-          .bind('fullcalendar_create_add_select', Drupal.CTools.Modal.clickAjaxLink)
+-          .trigger('fullcalendar_create_add_select');
+-        this.unselect();
++        }
++
++        nodeadd(settings, submit);
++
+       };
+     }
+     if (settings.click) {
+@@ -39,23 +43,65 @@ Drupal.fullcalendar.plugins.fullcalendar_create = {
+         if (settings.days && !settings.days[$.fullCalendar.formatDate(date, 'dddd')]) {
+           return;
+         }
+-
+-        var ajax = new Drupal.ajax('main', fullcalendar.$calendar[0], {
+-          event: 'fullcalendar_create_add_click',
+-          url: '/fullcalendar_create/ajax/add/' + settings.node_type,
+-          submit: {
+-            fullcalendar_create_start_date: $.fullCalendar.formatDate(date, 'u'),
+-            fullcalendar_create_date_field: settings.date_field
++        submit = {
++          fullcalendar_create_start_date: $.fullCalendar.formatDate(date, 'u'),
++          fullcalendar_create_date_field: settings.date_field
++        };
++        for (extra in Drupal.settings) {
++          if (extra.match(/^fullcalendar_create_/g) != null) {
++            for (arg in Drupal.settings[extra]) {
++              submit[arg] = Drupal.settings[extra][arg];
++            }
+           }
+-        });
+-        $(ajax.element)
+-          .bind('fullcalendar_create_add_click', Drupal.CTools.Modal.clickAjaxLink)
+-          .trigger('fullcalendar_create_add_click');
++        }
++
++        nodeadd(settings, submit);
++
+       };
+     }
++
+     return options;
+   }
+ };
+ 
++function nodeadd (settings, submit) {
++  // Construct GET query
++  var query = '?';
++  for (q in submit) {
++    if (q == 'fullcalendar_create_date_field') {
++      // The date field needs extra care.
++      for (i in submit[q]) {
++        submit[q] = i;
++      }
++    }
++    query += q + '=' + submit[q] + '&';
++  }
++  query = query.substring(0, query.length-1);
++
++  switch(settings.method) {
++    case 'modal':
++      var ajax = new Drupal.ajax('main', fullcalendar.$calendar[0], {
++        event: 'fullcalendar_create_add_select',
++        url: '/fullcalendar_create/ajax/add/' + settings.node_type,
++        submit: submit
++      });
++      $(ajax.element)
++        .bind('fullcalendar_create_add_select', Drupal.CTools.Modal.clickAjaxLink)
++        .trigger('fullcalendar_create_add_select');
++      this.unselect();
++      break;
++
++    case 'overlay':
++      Drupal.overlay.open(window.location.pathname + '#overlay=' + 'node/add/' + settings.node_type + encodeURIComponent(query).replace(/%2F/g, '/'));
++      break;
++
++    case 'newwindow':
++      window.open(Drupal.settings.basePath + 'node/add/' + settings.node_type + query);
++      break;
++
++    default:
++      window.location.assign('http://' + window.location.host + '/node/add/' + settings.node_type + query);
++  }
++}
+ 
+ }(jQuery));

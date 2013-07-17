@@ -1,0 +1,189 @@
+<?php
+// $Id$
+/**
+ * Implementation of hook_menu().
+ */
+function searchuser_menu() {
+  $items = array();
+    $items['searchuser'] = array(
+      'title' => t('View the form'),
+      'page callback' => 'searchuser_page',
+      'access callback' => TRUE
+    );
+    $items['searchuser/autocomplete/%'] = array(
+      'title' => t('searchuser'),
+      'page callback' => 'searchuser_autocomplete_callback',
+      'page arguments'=>array(2),
+      'access callback' => TRUE
+    );
+  return $items;
+}
+/**
+ * Called when user goes to example.com/?q=formexample
+ */
+function searchuser_page() {
+  drupal_add_css(drupal_get_path('module','searchuser').'/searchuser.css','file');
+  // Return the HTML generated from the $form data structure.
+  $output = render(drupal_get_form('searchuser_form'));
+  return $output;
+}
+/**
+ * Defines a form.
+ */
+function searchuser_form() {
+  $form['user_name'] = array(
+    '#title' => t('Search User'),
+    '#type' => 'textfield',
+    '#description' => t('Please enter name.'),
+    '#autocomplete_path' => 'searchuser/autocomplete',
+  );
+  /*
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit')
+  );
+   * 
+   */
+  return $form;
+}
+
+function searchuser_theme(){
+  return array(
+        'user_picture_helper' => array(
+          'variables' => array(
+          ),
+        ),
+      );
+}
+function theme_user_picture_helper(&$variables){
+    return $variables['user_picture'];
+}
+function template_preprocess_user_picture_helper(&$variables) {
+  $variables['user_picture'] = '';
+  if (variable_get('user_pictures', 0)) {
+    $account = $variables['account'];
+    if (!empty($account->picture)) {
+      // @TODO: Ideally this function would only be passed file objects, but
+      // since there's a lot of legacy code that JOINs the {users} table to
+      // {node} or {comments} and passes the results into this function if we
+      // a numeric value in the picture field we'll assume it's a file id
+      // and load it for them. Once we've got user_load_multiple() and
+      // comment_load_multiple() functions the user module will be able to load
+      // the picture files in mass during the object's load process.
+      if (is_numeric($account->picture)) {
+        $account->picture = file_load($account->picture);
+      }
+      if (!empty($account->picture->uri)) {
+        $filepath = $account->picture->uri;
+      }
+    }
+    elseif (variable_get('user_picture_default', '')) {
+      $filepath = variable_get('user_picture_default', '');
+    }
+    if (isset($filepath)) {
+      $alt = t("@user's picture", array('@user' => format_username($account)));
+      // If the image does not have a valid Drupal scheme (for eg. HTTP),
+      // don't load image styles.
+      if (module_exists('image') && file_valid_uri($filepath) && $style = variable_get('user_picture_style', '')) {
+        $variables['user_picture'] = theme('image_style', array('style_name' => $style, 'path' => $filepath, 'alt' => $alt, 'title' => $alt));
+      }
+      else {
+        $variables['user_picture'] = theme('image', array('path' => $filepath, 'alt' => $alt, 'title' => $alt));
+      }
+      if (!empty($account->uid) && user_access('access user profiles')) {
+        $attributes = array(
+          'attributes' => array('title' => t('View user profile.')),
+          'html' => TRUE,
+        );
+        $variables['user_picture'] = $variables['user_picture'];
+      }
+    }
+  }
+}
+/**
+* Retrieve a pipe delimited string of autocomplete suggestions for existing users
+*/
+function searchuser_autocomplete_callback($string) {
+  $matches = array();
+
+  if ($string) {
+    $query = db_select('users', 'u');
+    $query->leftJoin('realname', 'rn', 'u.uid = rn.uid');
+    $query->fields('u', array('uid'));
+    $name_like = db_or();
+    $name_like->condition('rn.realname', '%'.db_like($string) . '%', 'LIKE');
+    $name_like->condition('u.name', '%'.db_like($string) . '%', 'LIKE');
+    $query->condition($name_like);
+    $query->range(0, 10);
+    $uids = $query->execute()->fetchCol();
+    $accounts = user_load_multiple($uids);
+
+    foreach ($accounts as $account) {
+      $user_picture_variables['account'] = $account;
+      $user_picture = theme('user_picture_helper',$user_picture_variables);
+ //     $matches[$account->name] = format_username($account);
+  //    if ($matches[$account->name] != $account->name) {
+        $matches[$account->name] = '<div class="searchuser-each">' . 
+                                    '<div class="searchuser-each-pic">'.$user_picture.'</div>'.
+                                    '<div class="searchuser-each-name-level">'.
+                                        '<div class="searchuser-each-name">'.format_username($account) . '</div>';
+            if(module_exists('userlevel') && function_exists('userlevel_block_content')){
+                 $matches[$account->name] .='<div class="searchuser-each-level">'. userlevel_block_content($account->uid).'</div>';
+            }
+        $matches[$account->name] .= '</div></div>';
+        $matches[$account->name] = '<div><a href="'.'/user/'.$account->uid.'">'.$matches[$account->name]."</a></div>";
+//      }
+    }
+  }
+
+  drupal_json_output($matches);
+}
+
+
+/**
+ * Validate the form.
+ */
+function formexample_nameform_validate($form_id, $form_values) {
+  if ($form_values['user_name'] == 'King Kong') {
+    // We notify the form API that this field has failed validation.
+    form_set_error('user_name',
+      t('King Kong is not allowed to use this form.'));
+  }
+}
+/**
+ * Handle post-validation form submission.
+ */
+function formexample_nameform_submit($form_id, $form_values) {
+  $name = $form_values['user_name'];
+  drupal_set_message(t('Thanks for filling out the form, %name',
+    array('%name' => $name)));
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function searchuser_block_view($delta = '') {
+    switch($delta){
+        case 'searchuser':
+            $block['subject'] = t('searchuser');
+            $block['content'] = searchuser_block_content();
+            break;
+    }
+    return $block;
+}
+
+function searchuser_block_content(){
+    drupal_add_css(drupal_get_path('module','searchuser').'/searchuser.css','file');
+    // Return the HTML generated from the $form data structure.
+    $output = render(drupal_get_form('searchuser_form'));
+    return $output;
+}
+
+function searchuser_block_info() {
+  // This example comes from node.module.
+  $blocks['searchuser'] = array(
+    'info' => t('searchuser'),
+    'cache' => DRUPAL_NO_CACHE,
+  );
+  return $blocks;
+}

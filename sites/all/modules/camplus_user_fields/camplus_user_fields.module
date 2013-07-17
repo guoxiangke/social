@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Camplus User fields feature.
+ */
+
+include_once 'camplus_user_fields.features.inc';

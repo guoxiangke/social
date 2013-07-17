@@ -1,0 +1,27 @@
+diff --git a/save_draft.install b/save_draft.install
+new file mode 100644
+index 0000000..0109647
+--- /dev/null
++++ b/save_draft.install
+@@ -0,0 +1,15 @@
++<?php
++
++/**
++ * @file
++ * Install, update and uninstall functions for the save draft module.
++ */
++
++/**
++ * Implements hook_uninstall().
++ */
++function save_draft_uninstall() {
++  foreach (node_type_get_names('names') as $type => $type_name) {
++    variable_del('save_draft_enabled_' . $type);
++  }
++}
+diff --git a/save_draft.module b/save_draft.module
+old mode 100755
+new mode 100644
+diff --git a/save_draft.test b/save_draft.test
+old mode 100755
+new mode 100644

@@ -1,0 +1,196 @@
+<?php
+
+require_once drupal_get_path('module', 'userlevel').'/admin/admin.inc';
+require_once drupal_get_path('module','userlevel').'/config.php';
+/**
+ * Implements hook_menu().
+ */
+function userlevel_menu(){
+  $base = array(
+    'file' => 'admin.inc',
+    'file path' => drupal_get_path('module', 'userlevel') . '/admin',
+  );
+$items['admin/config/people/userlevel'] = array(
+    'page callback' => 'userlevel_lists',
+    'access arguments' => array('administer site configuration'),
+    'title' => 'level list',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+);
+  $items['admin/config/people/userlevel/lists'] = array(
+    'page callback' => 'userlevel_lists',
+    'access arguments' => array('administer site configuration'),
+    'title' => 'level list',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/config/people/userlevel/add'] = array(
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('userpoints_to_level_add'),
+    'access arguments' => array('administer site configuration'),
+    'title' => 'level add',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -10,
+  );
+  $items['admin/config/people/userlevel/delete/%'] = array(
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('userpoints_to_level_delete',5),
+    'access arguments' => array('administer site configuration'),
+    'title' => 'level delete',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+  );
+  $items['admin/config/people/userlevel/edit/%'] = array(
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('userpoints_to_level_add',5),
+    'access arguments' => array('administer site configuration'),
+    'title' => 'level edit',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+  );
+  
+  $items['debug/interest/people'] = array(
+    'page callback' => 'interest_people_block_content',
+    'access arguments' => array('administer site configuration'),
+    'title' => 'level delete',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => -10,
+  );
+  
+  return $items;
+}
+/**
+ * Implements hook_help().
+ */
+function userlevel_help($path, $arg) {
+  switch ($path) {
+    case 'admin/config/people/userlevel/lists':
+      return t('Configure userlevel');
+  }
+}
+/**
+ * Implements hook_theme().
+ */
+function userlevel_theme(){
+    return array(
+            'userlevel' => array(
+              'variables' => array(
+                  'img'=>'',
+                  'name'=>'',
+              ),
+            ),
+            'myprofile' => array(
+              'variables' => array(
+              ),
+                'template' => 'tpl/myprofile',
+            ),
+            'interest_people' => array(
+              'variables' => array(
+              ),
+            ),
+        );
+}
+function theme_interest_people($variables){
+    $str = '';
+    foreach($variables as $each){
+        $account = user_load($each->uid);
+        $user_picture = theme('user_picture', array('account' => $account));
+        $human_name = format_username($account);
+        $level = userlevel_block_content($each->uid);
+        $care = flag_create_link('care',$each->uid);
+        $str .= "<div class='interest-people-photo'>$user_picture</div>
+            <div class='interest-people-name'>$human_name</div>
+            <div class='interest-people-level'>$level</div>
+            <div class='interest-people-care'>$care</div>";
+    }
+    $str = "<div class='interest-people-content'>$str</div>";
+    return $str;
+}
+/*
+function theme_myprofileasdfsda($variables){
+    $variables['user_picture'] = theme('user_picture', array('account' => user_load($variables['uid'])));
+    $variables['userbadge'] = unserialize($variables['userbadge']);
+    foreach($variables['userbadge'] as &$each){
+        $badge_conf = userbadge_conf($each);
+        if(!empty($badge_conf)){
+            $each = $badge_conf;
+        }
+    }
+    $care_str = $variables['count'].t(" people caring you!");
+    $account = user_load($variables['uid']);
+    if(empty($variables['count'])){
+            $care_str = t('Share! Let others care you');
+    }
+    $points_str = $variables['points'];
+    if(empty($variables['points'])){
+            $points_str = t('you have no coins.');
+    }
+    $str = "
+    <div id='my-profile-block'>
+        <div class='user-pic'>".$variables['user_picture']."</div>
+        <div class='user-name'>".format_username($account)."</div>
+        ".userlevel_block_content()."
+        <div class='user-coins'>coins:".$points_str."</div>
+        <div class='user-care'>".$care_str."</div>
+    </div>        
+    ";
+    $s =<<<EOF
+
+EOF;
+    return $s;
+}
+*/
+/**
+ * Implements hook_block_info().
+ */
+function userlevel_block_info(){
+  $blocks['my_profile'] = array(
+    'info' => t('My Profile'),
+  );
+  $blocks['interest_people'] = array(
+    'info' => t('People you may interest'),
+  );
+  return $blocks;
+}
+/**
+ * Implements hook_block_view().
+ */
+function userlevel_block_view($delta = '') {
+    switch($delta){
+        case 'my_profile':
+            $block['subject'] = t('My Profile');
+            $block['content'] = myprofile_block_content();
+            break;
+        case 'interest_people':
+            $block['subject'] = t('People you may interest');
+            $block['content'] = interest_people_block_content();
+            break;
+    }
+    return $block;
+}
+/**
+ * Implements hook_userpoints().
+ * op:points after
+ */
+function userlevel_userpoints($op,$params){
+    if($op == 'points after'){
+        if($params['points']>0){
+            $total_points = userpoints_get_current_points($params['uid'], 'all');
+            $points_level = conflevel_list();
+            $next_level=1;
+            foreach($points_level as $each){
+                if($total_points<$each['points']){
+                    break;
+                }
+				else{
+					$next_level = $each['level_human'];
+				}
+            }
+			$now_userlevel_info = userlevel_get($params['uid']);
+			$now_level = $now_userlevel_info['level_human'];
+            if($now_level<$next_level){
+                userlevel_set($params['uid'], $next_level);
+            }
+        }
+    }
+}

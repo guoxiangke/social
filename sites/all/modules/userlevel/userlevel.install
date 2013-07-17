@@ -1,0 +1,65 @@
+<?php
+
+/**
+ * Implements hook_schema().
+ */
+function userlevel_schema() {
+  $schema['userlevel'] = array(
+    'description' => 'Stores userlevel based on userpoints.',
+    'fields' => array(
+      'userlevel_id' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'type' => 'serial',
+        'length' => 11,
+        'not null' => TRUE,
+        'description' => 'Unique userlevel id',
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'length' => 11,
+        'description' => 'user id.',
+      ),
+      'level' => array(
+        'type' => 'int',
+        'length' => 11,
+        'description' => 'users level.',
+      ),
+    ),
+    'unique keys' => array(
+        'uid' => array('uid'),
+    ),
+    'primary key' => array('userlevel_id'),
+  );
+  $schema['userlevel_conf'] = array(
+    'description' => 'Stores system userlevel conf info.',
+    'fields' => array(
+      'level' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'type' => 'serial',
+        'length' => 11,
+        'not null' => TRUE,
+        'description' => 'Unique level id',
+      ),
+      'points' => array(
+        'type' => 'int',
+        'length' => 11,
+         'unsigned' => TRUE,
+        'description' => 'level needs points.',
+      ),
+      'img' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'description' => 'level images.',
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'description' => 'level name.',
+      ),
+    ),
+    'primary key' => array('level'),
+  );
+  return $schema;
+}

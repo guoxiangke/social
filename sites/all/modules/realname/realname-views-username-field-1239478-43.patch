@@ -1,0 +1,43 @@
+diff --git a/realname.views.inc b/realname.views.inc
+index 8dc2e95..5ffdeb0 100644
+--- a/realname.views.inc
++++ b/realname.views.inc
+@@ -17,25 +17,20 @@ function realname_views_data() {
+     ),
+   );
+ 
+-  $data['realname']['realname'] = array(
+-    'title' => t('Real name'),
+-    'help' => t("The user's real name."),
++  return $data;
++}
++
++/**
++ * Implements hook_views_data_alter().
++ */
++function realname_views_data_alter(&$data) {
++  $data['users']['username'] = array(
++    'title' => t('Username'),
++    'help' => t("The user or author username."),
++    'real field' => 'name',
+     'field' => array(
+-      'handler' => 'views_handler_field_user',
++      'handler' => 'views_handler_field',
+       'click sortable' => TRUE,
+-    ),
+-    'sort' => array(
+-      'handler' => 'views_handler_sort',
+-    ),
+-    'argument' => array(
+-      'handler' => 'views_handler_argument_string',
+-    ),
+-    'filter' => array(
+-      'handler' => 'views_handler_filter_string',
+-      'title' => t('Name'),
+-      'help' => t("The user's real name. This filter does not check if the user exists and allows partial matching. Does not utilize autocomplete.")
+-    ),
++     ),
+   );
+-
+-  return $data;
+ }

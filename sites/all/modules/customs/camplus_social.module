@@ -1,0 +1,47 @@
+<?php
+/**
+ * Implements hook_form_alter().
+ */
+function camplus_social_form_alter(&$form, &$form_state, $form_id) {
+	
+  if($form_id == 'sharing_node_form') {
+    $form['title']['#type'] = 'textarea';
+    $form['author']['#access'] = FALSE;
+    $form['options']['#access'] = FALSE;
+  }
+  if($form_id == 'comment_node_sharing_form') {
+    $form['author']['#access'] = FALSE;
+    $form['subject']['#access'] = FALSE;
+    $form['comment_body'][LANGUAGE_NONE][0]['#title'] = t('Reply');	
+  }
+}
+
+
+/**
+ * prepare comments for views:single_question_page. and the comments froms both for question and answer node.
+ */
+function camplus_social_views_post_execute(&$view) {
+   if ($view->name == 'sharing_status') {
+     foreach ( $view->result as &$answer_item) { // both for question_item
+       if (!isset($answer_item->comments)) {
+         $node = node_load($answer_item->nid);
+         $comment = comment_node_page_additions($node) ;
+         $answer_item->comments['#content'] = $comment['comments'];
+         // $flag = count($comment['comments']);
+         // $answer_item->comments['#content']['#prefix'] = '<div class="comments-wrapper" id="comments-wrapper-'.$node->nid.'">';
+         // if($flag) {
+         //   $answer_item->comments['#content']['#prefix'] .= '<div class="has-comment"><b class="triangle_top"></b></div>';
+         // }
+         // $answer_item->comments['#content']['#suffix'] = '</div>';
+         $answer_item->comments['#form'] = $comment['comment_form'];
+         if (!$node->comment_count) {
+            // Append comment form if needed.
+            if (user_access('post comments') && $node->comment == COMMENT_NODE_OPEN && (variable_get('comment_form_location_' . $node->type, COMMENT_FORM_BELOW) == COMMENT_FORM_BELOW)) {
+              $build = drupal_get_form("comment_node_{$node->type}_form", (object) array('nid' => $node->nid));
+              $answer_item->comments['#form'] = $build;
+            }
+         }
+       }
+     }
+   }
+}

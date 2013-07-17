@@ -1,0 +1,17 @@
+div.searchuser-each,
+div.searchuser-each *{
+    margin: 0px;
+}
+#autocomplete *{
+    padding: 0px !important;
+    margin: 0px !important;
+}
+#autocomplete {
+    padding:0px !important;
+    background-color: red !important;
+   border: 1px solid #cecece;
+}
+.reference-autocomplete {
+   padding: 4px;
+   border-bottom: 1px solid #cecece;
+}

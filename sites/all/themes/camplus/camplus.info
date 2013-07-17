@@ -1,0 +1,18 @@
+name = Camplus
+description = Camplus.
+core = 7.x
+engine = phptemplate
+
+regions[page_top] = Page Top
+regions[header] = Header
+regions[highlighted] = Highlighted
+regions[help] = Help
+regions[content_top] = Content Top
+regions[content] = Content
+regions[sidebar_first] = Left sidebar
+regions[sidebar_second] = Right sidebar
+regions[footer] = Footer
+regions[page_bottom] = Page Bottom
+
+stylesheets[all][] = css/base.css
+stylesheets[all][] = css/style.css
